@@ -5,7 +5,7 @@ from typing import Annotated
 from models import StorageAdapter
 from schemas import AdapterCreate, AdapterOut
 from services.auth import get_current_active_user, User
-from services.adapters.registry import runtime_registry, get_config_schemas
+from services.adapters.registry import runtime_registry, get_config_schemas, normalize_adapter_type
 from api.response import success
 from services.logging import LogService
 
@@ -14,6 +14,9 @@ router = APIRouter(prefix="/api/adapters", tags=["adapters"])
 
 def validate_and_normalize_config(adapter_type: str, cfg):
     schemas = get_config_schemas()
+    adapter_type = normalize_adapter_type(adapter_type)
+    if not adapter_type:
+        raise HTTPException(400, detail="不支持的适配器类型")
     if not isinstance(cfg, dict):
         raise HTTPException(400, detail="config 必须是对象")
     schema = schemas.get(adapter_type)
@@ -81,7 +84,6 @@ async def available_adapter_types(
     for t, fields in get_config_schemas().items():
         data.append({
             "type": t,
-            "name": "本地文件系统" if t == "local" else ("WebDAV" if t == "webdav" else t),
             "config_schema": fields,
         })
     return success(data)
